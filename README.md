@@ -1,4 +1,4 @@
-# Juego de la Vida — secuencial vs. paralelo
+# Simulación Paralela de Difusión de Calor
 
 ## Estructura
 
