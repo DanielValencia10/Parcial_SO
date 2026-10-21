@@ -10,6 +10,7 @@ import pygame
 
 import config
 from core.registry import NOMBRES
+from gui import renderer
 
 SIDEBAR_W = 380
 STATUS_H = 24
@@ -63,6 +64,7 @@ class UIState:
     workers_idx: int = 0
     speed_idx: int = 0
     show_bands: bool = True
+    escala: str = renderer.ESCALA_INICIAL   # escala de colores del mapa de calor: "log" o "lineal"
     iteration: int = 0                 # iteraciones hechas en la corrida actual
     total: int = config.ITERACIONES    # iteraciones fijas del enunciado
     compute_s: float = 0.0             # tiempo de CÓMPUTO acumulado de la corrida (sin dibujo)
@@ -117,6 +119,10 @@ def _do(state, name, data):
     if name == "toggle_bands":
         state.show_bands = not state.show_bands
         return None
+    if name == "toggle_scale":
+        otras = renderer.ESCALAS
+        state.escala = otras[(otras.index(state.escala) + 1) % len(otras)]
+        return None
     return (name, data)     # el resto lo ejecuta app.py
 
 
@@ -132,6 +138,7 @@ def handle_event(event, state):
         simples = {
             pygame.K_SPACE: ("toggle_run", None), pygame.K_n: ("step", None),
             pygame.K_r: ("reset", None), pygame.K_b: ("toggle_bands", None),
+            pygame.K_l: ("toggle_scale", None),
             pygame.K_UP: ("workers", +1), pygame.K_DOWN: ("workers", -1),
             pygame.K_RIGHT: ("speed", +1), pygame.K_LEFT: ("speed", -1),
             pygame.K_RIGHTBRACKET: ("size", +1), pygame.K_LEFTBRACKET: ("size", -1),
@@ -308,8 +315,9 @@ def draw_sidebar(screen, state, fonts):
     y += 40
 
     _row(screen, state, fonts.small, x, y, inner, 30, [
-        _spec("Mostrar bandas (reparto de filas)", ("toggle_bands", None),
-              active=state.show_bands and par, enabled=par)])
+        _spec("Bandas (reparto de filas)", ("toggle_bands", None),
+              active=state.show_bands and par, enabled=par, weight=3),
+        _spec(f"Escala: {state.escala}", ("toggle_scale", None), weight=2)])
     y += 40
 
     card = pygame.Rect(x, y, inner, 118)
@@ -321,5 +329,5 @@ def draw_sidebar(screen, state, fonts):
     pygame.draw.rect(screen, COLOR_CARD, card, border_radius=8)
     _tarjeta_tiempos(screen, state, fonts, card)
 
-    _text(screen, fonts.small, "Espacio inicia · N paso · R reinicia · B bandas · 1-4 versión",
-          x, h - 24, COLOR_DIM)
+    _text(screen, fonts.small, "Espacio inicia · N paso · R reinicia · 1-4 versión", x, h - 42, COLOR_DIM)
+    _text(screen, fonts.small, "B bandas · L escala de colores", x, h - 24, COLOR_DIM)

@@ -165,9 +165,9 @@ class App:
         side = max(1, int(n * cell))
         rect = pygame.Rect(0, 0, side, side)
         rect.center = area.center
-        key = (self.rev, ui.show_bands, side, ui.version, ui.workers)
+        key = (self.rev, ui.show_bands, side, ui.version, ui.workers, ui.escala)
         if key != self._cache_key:
-            rgb = renderer.placa_a_rgb(self.arr)
+            rgb = renderer.placa_a_rgb(self.arr, ui.escala)
             surf = pygame.surfarray.make_surface(rgb.swapaxes(0, 1))
             surf = pygame.transform.scale(surf, (side, side))
             if ui.show_bands and ui.parallel and self.rangos:
@@ -214,7 +214,8 @@ class App:
         if self.arr is not None:
             self._draw_board(area)
             renderer.dibujar_leyenda(
-                self.screen, pygame.Rect(area.right + 14, area.y, LEGEND_W - 14, area.h), self.fonts.small)
+                self.screen, pygame.Rect(area.right + 14, area.y, LEGEND_W - 14, area.h), self.fonts.small,
+                self.ui.escala)
             self.ui.hover = self._hover_text()
         else:
             msg = self.fonts.body.render("Placa no disponible: revisar core/grid.py", True, controls.COLOR_WARN)
