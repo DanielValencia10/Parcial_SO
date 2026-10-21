@@ -24,6 +24,9 @@ gui/
   app.py                ventana, bucle principal y dibujo de la placa
   controls.py           botones, teclado y panel lateral
   renderer.py           mapa de calor: escala de colores y leyenda
+medicion.py             programa de medición: tiempos de cada versión y datos del equipo
+graficas.py             gráficas de tiempo, speedup y eficiencia, y tabla resumen
+resultados/             salida de medicion.py y graficas.py
 ```
 
 Las versiones V1 a V4 se usan todas igual (contrato de `core/engine_base.py`), así que la interfaz y la medición
@@ -54,6 +57,31 @@ del programa de medición.
 
 ## Equipo y mediciones
 
-El análisis de rendimiento (tamaños 100, 500, 1000 y 2000; 1, 2, 4 y 8 hilos o procesos; mínimo 3 ejecuciones
-por configuración) y sus gráficas se ejecutan con el programa de medición. Sus instrucciones y las características
-del equipo (procesador y número de núcleos) las completa quien lo implementó.
+Equipo donde se midió:
+
+- Procesador: AMD Ryzen 7 8845HS (8 núcleos físicos, 16 lógicos)
+- Windows 11, Python 3.14.5 (con GIL)
+
+Los datos exactos de cada medición quedan en `resultados/equipo.json`.
+
+Medición (tamaños 100, 500, 1000 y 2000; 1, 2, 4 y 8 hilos o procesos; 3 ejecuciones de 200 iteraciones por
+configuración). Tarda alrededor de una hora y cuarto, porque V1 y V2 en bucles puros de Python tardan unos
+2-3 minutos por ejecución con 2000×2000:
+
+```powershell
+python medicion.py
+```
+
+Solo se cronometra `run(200)`: crear la placa y arrancar los hilos o procesos se anota aparte (`arranque_s`) y el
+CSV se escribe entre ejecuciones. Se guarda después de cada ejecución; si se interrumpe, `python medicion.py
+--continuar` sigue donde quedó. También se pueden elegir partes, por ejemplo
+`python medicion.py --tamanos 100,500 --versiones 2,3`.
+
+Gráficas y tabla resumen (promedio, speedup = T(V1) / T(versión) y eficiencia = speedup / p):
+
+```powershell
+python graficas.py
+```
+
+Salidas en `resultados/`: `mediciones.csv` (cada ejecución), `resumen.csv` (promedios), `rendimiento_vs_trabajadores.png`,
+`rendimiento_vs_tamano.png` y `comparacion_versiones.png`.
