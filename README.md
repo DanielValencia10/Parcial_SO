@@ -23,6 +23,7 @@ core/
 gui/
   app.py                ventana, bucle principal y dibujo de la placa
   controls.py           botones, teclado y panel lateral
+  race.py               la carrera: V1..V4 a la vez, cada una en su propio proceso
   renderer.py           mapa de calor: escala de colores y leyenda
 medicion.py             programa de medición: tiempos de cada versión y datos del equipo
 graficas.py             gráficas de tiempo, speedup y eficiencia, y tabla resumen
@@ -50,7 +51,14 @@ python -m gui.app
 
 Controles: **Espacio** inicia o pausa · **N** avanza una iteración · **R** reinicia · **1-4** elige la versión ·
 **↑ ↓** hilos o procesos · **[ ]** tamaño de la placa · **← →** velocidad · **B** muestra las bandas de filas de cada
-hilo o proceso · **Esc** sale. Al pasar el ratón sobre la placa se ve la temperatura de la celda.
+hilo o proceso **L** cambia la escala de colores (logarítmica o lineal) · **M** activa la carrera · **Esc** sale. Al pasar el ratón sobre la placa se ve la temperatura de la celda.
+
+**Carrera (M):** las cuatro versiones corren a la vez las mismas 200 iteraciones, cada una en su propio proceso,
+con la misma placa inicial y el mismo número de hilos o procesos. Todas arrancan juntas con una señal de salida
+(crear hilos o procesos no cuenta) y el tiempo de cada una es solo el de `run()`. Las cuatro placas se ven a la vez
+en una cuadrícula de 2 × 2 (vista reducida a unas 100 × 100 celdas, solo para dibujar) con su progreso, tiempo y
+puesto; al terminar se ve quién ganó, el speedup contra V1 y la diferencia máxima entre las matrices finales.
+Como corren al mismo tiempo, compiten por los núcleos: sirve para verlas competir, no reemplaza la medición.
 
 El tiempo que muestra la interfaz es solo de cómputo y sirve como referencia visual; los tiempos del informe salen
 del programa de medición.

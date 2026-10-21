@@ -10,6 +10,7 @@ import pygame
 
 import config
 from core.registry import NOMBRES
+from gui import renderer
 
 SIDEBAR_W = 380
 STATUS_H = 24
@@ -33,6 +34,8 @@ COLOR_WARN = (255, 184, 76)
 COLOR_BAD = (240, 100, 100)
 
 VERSION_LABEL = {v: f"V{v} {NOMBRES[v]}" for v in NOMBRES}
+# Color de cada versión en las barras de la carrera.
+VERSION_COLORS = {1: (150, 170, 190), 2: (86, 148, 255), 3: (255, 153, 66), 4: (92, 206, 120)}
 
 Fonts = namedtuple("Fonts", "title head body small big")
 
@@ -63,6 +66,7 @@ class UIState:
     workers_idx: int = 0
     speed_idx: int = 0
     show_bands: bool = True
+    escala: str = renderer.ESCALA_INICIAL   # escala de colores del mapa de calor: "log" o "lineal"
     iteration: int = 0                 # iteraciones hechas en la corrida actual
     total: int = config.ITERACIONES    # iteraciones fijas del enunciado
     compute_s: float = 0.0             # tiempo de CÓMPUTO acumulado de la corrida (sin dibujo)
@@ -72,6 +76,10 @@ class UIState:
     hover: str = ""                    # temperatura de la celda bajo el ratón
     buttons: list = field(default_factory=list)
     tiempos: dict = field(default_factory=dict)   # (versión, tamaño, trabajadores) -> segundos de una corrida completa
+    carrera: bool = False              # CARRERA: V1..V4 corren a la vez desde la misma placa
+    carrera_view: dict = None          # estado de la carrera para dibujar (lo escribe app.py en cada cuadro)
+    diff: dict = field(default_factory=dict)      # versión -> diferencia máxima contra la versión base de la carrera
+    diff_base: int = 0                 # versión contra la que se comparó (V1; si falló, la más rápida)
 
     @property
     def workers(self):
@@ -117,6 +125,10 @@ def _do(state, name, data):
     if name == "toggle_bands":
         state.show_bands = not state.show_bands
         return None
+    if name == "toggle_scale":
+        otras = renderer.ESCALAS
+        state.escala = otras[(otras.index(state.escala) + 1) % len(otras)]
+        return None
     return (name, data)     # el resto lo ejecuta app.py
 
 
@@ -132,6 +144,7 @@ def handle_event(event, state):
         simples = {
             pygame.K_SPACE: ("toggle_run", None), pygame.K_n: ("step", None),
             pygame.K_r: ("reset", None), pygame.K_b: ("toggle_bands", None),
+            pygame.K_m: ("compare", None), pygame.K_l: ("toggle_scale", None),
             pygame.K_UP: ("workers", +1), pygame.K_DOWN: ("workers", -1),
             pygame.K_RIGHT: ("speed", +1), pygame.K_LEFT: ("speed", -1),
             pygame.K_RIGHTBRACKET: ("size", +1), pygame.K_LEFTBRACKET: ("size", -1),
@@ -259,6 +272,49 @@ def _tarjeta_tiempos(screen, state, fonts, card):
     _text(screen, fonts.small, "Solo cómputo, sin dibujar (los oficiales: medición)", cx, cy + 2, COLOR_DIM)
 
 
+def _tarjeta_carrera(screen, state, fonts, card, versions):
+    """Tarjeta de la CARRERA: un carril por versión con su progreso, tiempo, speedup contra V1 y puesto."""
+    view = state.carrera_view
+    cx, cy = card.x + 12, card.y + 10
+    n = state.total
+    _text(screen, fonts.body, f"Carrera: {n} iteraciones", cx, cy, COLOR_TEXT)
+    fase = {"preparando": "Preparando…", "corriendo": "¡En marcha!", "terminada": "Terminada",
+            "cancelada": "Cancelada"}.get(view["fase"] if view else "", "Pulsa Iniciar")
+    _text(screen, fonts.small, fase, card.right - 12, cy + 3, COLOR_ACCENT, right=True)
+    cy += 28
+    carriles = {c["v"]: c for c in view["carriles"]} if view else {}
+    base = view["segundos"].get(1) if view else None       # tiempo de V1, para el speedup
+    bar_x, bar_w = cx + 98, 86
+    for v in versions:
+        c = carriles.get(v)
+        _text(screen, fonts.small, f"V{v} {NOMBRES[v].split()[0]}", cx, cy + 2,
+              COLOR_TEXT if v == state.version else COLOR_BODY)
+        pygame.draw.rect(screen, COLOR_EDGE, (bar_x, cy + 3, bar_w, 12), border_radius=3)    # la pista
+        if c:
+            if c["hechas"]:
+                pygame.draw.rect(screen, VERSION_COLORS[v],
+                                 (bar_x, cy + 3, max(3, int(bar_w * c["hechas"] / n)), 12), border_radius=3)
+            if c["error"]:
+                _text(screen, fonts.small, "no disponible", card.right - 12, cy + 2, COLOR_BAD, right=True)
+            else:
+                secs = f"{c['segundos']:.2f} s" if c["segundos"] else "—"
+                _text(screen, fonts.small, secs, card.right - 96, cy + 2, COLOR_TEXT, right=True)
+                if c["puesto"] and base and v != 1:
+                    s = base / c["segundos"]
+                    color = COLOR_OK if s > 1.05 else (COLOR_WARN if s >= 0.95 else COLOR_BAD)
+                    _text(screen, fonts.small, f"{s:.2f}×", card.right - 48, cy + 2, color, right=True)
+                elif v == 1 and c["puesto"]:
+                    _text(screen, fonts.small, "base", card.right - 48, cy + 2, COLOR_DIM, right=True)
+                if c["puesto"]:
+                    _text(screen, fonts.small, f"{c['puesto']}º", card.right - 12, cy + 2,
+                          COLOR_ACCENT if c["puesto"] == 1 else COLOR_DIM, right=True)
+        cy += 22
+    if state.diff:
+        txt = "  ".join(f"V{v} {d:.1e}" if d else f"V{v} 0" for v, d in sorted(state.diff.items()))
+        _text(screen, fonts.small, f"Diferencia máx. vs V{state.diff_base}:  {txt}", cx, cy + 4,
+              COLOR_OK if not any(state.diff.values()) else COLOR_WARN)
+
+
 def draw_sidebar(screen, state, fonts):
     """Panel derecho: botones y métricas."""
     w, h = screen.get_size()
@@ -273,53 +329,71 @@ def draw_sidebar(screen, state, fonts):
     _text(screen, fonts.small, "Parcial I · 750023C", x + inner, y + 8, COLOR_DIM, right=True)
     y += 34
 
-    if state.running:
+    carrera = state.carrera
+    if carrera:
+        inicio = "Cancelar carrera" if state.running else "¡Iniciar carrera!"
+    elif state.running:
         inicio = "Pausar"
     else:
         inicio = "Repetir" if state.finished else "Iniciar"
     _row(screen, state, fonts.body, x, y, inner, 38, [
         _spec(inicio, ("toggle_run", None), "primary", weight=2),
-        _spec("Paso", ("step", None), enabled=not state.finished),
+        _spec("Paso", ("step", None), enabled=not state.finished and not carrera),
         _spec("Reiniciar", ("reset", None))])
     y += 48
 
-    _text(screen, fonts.small, "Versión", x, y, COLOR_DIM)
+    _text(screen, fonts.small, "Versión (en la carrera corren las cuatro)" if carrera else "Versión",
+          x, y, COLOR_DIM)
     y += 18
     versions = list(config.GUI_VERSIONES)
     for i in range(0, len(versions), 2):
         _row(screen, state, fonts.small, x, y, inner, 32, [
-            _spec(VERSION_LABEL[v], ("version", v), active=(state.version == v))
+            _spec(VERSION_LABEL[v], ("version", v), active=(state.version == v and not carrera),
+                  enabled=not carrera)
             for v in versions[i:i + 2]], gap=6)
         y += 38
     _text(screen, fonts.small, "V4 es una variante adicional: no sustituye la línea base (V1).",
           x, y - 2, COLOR_DIM)
     y += 22
 
-    par = state.parallel
-    workers_label = "Procesos" if state.version == 3 else "Hilos"
+    par = state.parallel or carrera          # en la carrera los trabajadores cuentan para V2 y V3
+    if carrera:
+        workers_label = "Hilos/proc."
+    else:
+        workers_label = "Procesos" if state.version == 3 else "Hilos"
     _stepper(screen, state, fonts, x, y, inner, workers_label, str(state.workers) if par else "—",
              ("workers", -1), ("workers", +1), enabled=par)
     y += 34
     _stepper(screen, state, fonts, x, y, inner, "Matriz", f"{state.size} × {state.size}",
              ("size", -1), ("size", +1))
     y += 34
-    _stepper(screen, state, fonts, x, y, inner, "Velocidad", f"{state.speed} iter/s",
-             ("speed", -1), ("speed", +1))
+    _stepper(screen, state, fonts, x, y, inner, "Velocidad", "máxima" if carrera else f"{state.speed} iter/s",
+             ("speed", -1), ("speed", +1), enabled=not carrera)
     y += 40
 
     _row(screen, state, fonts.small, x, y, inner, 30, [
-        _spec("Mostrar bandas (reparto de filas)", ("toggle_bands", None),
-              active=state.show_bands and par, enabled=par)])
+        _spec("Bandas", ("toggle_bands", None),
+              active=state.show_bands and state.parallel and not carrera,
+              enabled=state.parallel and not carrera),
+        _spec(f"Escala: {state.escala}", ("toggle_scale", None)),
+        _spec("Carrera (M)", ("compare", None), active=carrera)])
     y += 40
 
-    card = pygame.Rect(x, y, inner, 118)
-    pygame.draw.rect(screen, COLOR_CARD, card, border_radius=8)
-    _tarjeta_metricas(screen, state, fonts, card)
-    y = card.bottom + 10
+    if carrera:
+        card = pygame.Rect(x, y, inner, 70 + 22 * len(versions) + 10)
+        pygame.draw.rect(screen, COLOR_CARD, card, border_radius=8)
+        _tarjeta_carrera(screen, state, fonts, card, versions)
+        _text(screen, fonts.small, "Todas corren a la vez: compiten por los núcleos.", x, card.bottom + 8, COLOR_DIM)
+        _text(screen, fonts.small, "Es para verlas competir, no reemplaza la medición.", x, card.bottom + 26, COLOR_DIM)
+    else:
+        card = pygame.Rect(x, y, inner, 118)
+        pygame.draw.rect(screen, COLOR_CARD, card, border_radius=8)
+        _tarjeta_metricas(screen, state, fonts, card)
+        y = card.bottom + 10
 
-    card = pygame.Rect(x, y, inner, 26 + 20 * len(versions) + 36)
-    pygame.draw.rect(screen, COLOR_CARD, card, border_radius=8)
-    _tarjeta_tiempos(screen, state, fonts, card)
+        card = pygame.Rect(x, y, inner, 26 + 20 * len(versions) + 36)
+        pygame.draw.rect(screen, COLOR_CARD, card, border_radius=8)
+        _tarjeta_tiempos(screen, state, fonts, card)
 
-    _text(screen, fonts.small, "Espacio inicia · N paso · R reinicia · B bandas · 1-4 versión",
-          x, h - 24, COLOR_DIM)
+    _text(screen, fonts.small, "Espacio inicia · N paso · R reinicia · 1-4 versión", x, h - 42, COLOR_DIM)
+    _text(screen, fonts.small, "B bandas · L escala de colores · M carrera", x, h - 24, COLOR_DIM)
