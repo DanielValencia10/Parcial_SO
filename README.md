@@ -50,7 +50,7 @@ python -m gui.app
 
 Controles: **Espacio** inicia o pausa · **N** avanza una iteración · **R** reinicia · **1-4** elige la versión ·
 **↑ ↓** hilos o procesos · **[ ]** tamaño de la placa · **← →** velocidad · **B** muestra las bandas de filas de cada
-hilo o proceso · **Esc** sale. Al pasar el ratón sobre la placa se ve la temperatura de la celda.
+hilo o proceso · **L** cambia la escala de colores (logarítmica o lineal) · **Esc** sale. Al pasar el ratón sobre la placa se ve la temperatura de la celda.
 
 El tiempo que muestra la interfaz es solo de cómputo y sirve como referencia visual; los tiempos del informe salen
 del programa de medición.
