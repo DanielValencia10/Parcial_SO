@@ -14,6 +14,8 @@ core/
   engine_base.py        contrato común: Engine(placa, workers), run, step, snapshot, close
   registry.py           lista de versiones V1..V4 y carga bajo demanda
   grid.py               la placa: lista de filas array('d'); crear y copiar
+  difusion.py           la única función de cálculo: actualiza un rango de filas (la usan V1, V2 y V3)
+  particion.py          reparto de las filas interiores en bandas, una por hilo o proceso
   v1_sequential.py      V1 secuencial, bucles puros de Python (línea base)
   v2_threads.py         V2 hilos con una barrera por iteración
   v3_processes.py       V3 procesos: bandas de filas y filas frontera
