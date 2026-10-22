@@ -1,0 +1,9 @@
+{
+  "procesador": "Intel(R) Core(TM) 5 210H",
+  "nucleos_fisicos": 8,
+  "nucleos_logicos": 12,
+  "sistema": "Windows 11 (10.0.26300)",
+  "python": "3.14.3",
+  "gil_activo": true,
+  "fecha": "2026-10-21 09:39"
+}
